@@ -1,0 +1,13 @@
+DEFAULT_TEST_CODE = "601318.SH"
+DEFAULT_TEST_NAME = "中国平安"
+PROJECT_DB_NAME = "t_alpha"
+DISCLAIMER = "仅供研究参考，不构成投资建议。"
+
+ASSET_STOCK = "stock"
+ASSET_ETF = "etf"
+ASSET_FUND = "fund"
+
+PERIOD_DAY = "day"
+PERIOD_60M = "60m"
+SUPPORTED_PERIODS = {PERIOD_DAY, PERIOD_60M}
+SUPPORTED_ADJUST = {"none", "forward"}
