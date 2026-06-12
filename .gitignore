@@ -12,6 +12,6 @@ venv/
 dist/
 build/
 *.egg-info/
-data/
+/data/
 reports/
 logs/

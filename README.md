@@ -106,6 +106,8 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 python -m pip install -e ".[dev]"
 ```
 
+AmazingData SDK 不是公开 PyPI 包，首次配置或重建 `.venv` 后还需要安装 `tgw` 和 `AmazingData` wheel。具体步骤见 `docs/amazingdata_sdk_install.md`。
+
 其中：
 
 - `-e` 表示 editable，可编辑安装。

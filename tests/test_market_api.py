@@ -21,6 +21,7 @@ class FakeMarketService:
         return {
             "code": code,
             "requested_dates": {"start_date": start_date, "end_date": end_date},
+            "normalized_dates": {"start_date": "20240102", "end_date": "20240110"},
             "rows": [{"price_date": "20240102", "unit_nav": 1.0, "accum_nav": 1.1, "adj_unit_nav": 1.2, "inner_code": "", "outer_code": "000001"}],
             "disclaimer": "仅供研究参考，不构成投资建议。",
         }
@@ -48,6 +49,31 @@ def test_stock_price_endpoint_shape():
 def test_invalid_adjust_rejected():
     client = TestClient(app)
     response = client.get("/api/v1/market/stock/prices?code=601318.SH&adjust=bad")
+    assert response.status_code == 422
+
+
+def test_blank_optional_price_params_use_defaults():
+    client = TestClient(app)
+    response = client.get(
+        "/api/v1/market/stock/prices?code=601318.SH&start_date=&end_date=&period=&adjust="
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["requested_dates"] == {"start_date": None, "end_date": None}
+    assert payload["period"] == "day"
+    assert payload["adjust"] == "none"
+
+
+def test_blank_optional_fund_nav_dates_use_defaults():
+    client = TestClient(app)
+    response = client.get("/api/v1/market/fund/nav?code=000001.OF&start_date=&end_date=")
+    assert response.status_code == 200
+    assert response.json()["requested_dates"] == {"start_date": None, "end_date": None}
+
+
+def test_blank_required_code_is_rejected():
+    client = TestClient(app)
+    response = client.get("/api/v1/market/stock/prices?code=")
     assert response.status_code == 422
 
 

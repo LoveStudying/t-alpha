@@ -45,5 +45,6 @@ class FundNavRow(BaseModel):
 class FundNavResponse(BaseModel):
     code: str
     requested_dates: DateRange
+    normalized_dates: DateRange
     rows: List[FundNavRow]
     disclaimer: str = Field(default=DISCLAIMER)

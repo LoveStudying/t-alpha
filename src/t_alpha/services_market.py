@@ -14,9 +14,31 @@ class MarketService:
 
     def _normalize_dates(self, start_date: str | None, end_date: str | None) -> tuple[int, int]:
         try:
-            return normalize_date_range(self.client.get_calendar(), start_date, end_date)
+            return normalize_date_range(
+                self.client.get_calendar(),
+                self._optional_text(start_date),
+                self._optional_text(end_date),
+            )
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @staticmethod
+    def _optional_text(value: str | None) -> str | None:
+        if value is None:
+            return None
+        stripped = value.strip()
+        return stripped or None
+
+    @classmethod
+    def _default_text(cls, value: str | None, default: str) -> str:
+        return cls._optional_text(value) or default
+
+    @classmethod
+    def _required_text(cls, value: str) -> str:
+        stripped = cls._optional_text(value)
+        if stripped is None:
+            raise HTTPException(status_code=422, detail="code is required")
+        return stripped
 
     def get_prices(
         self,
@@ -27,6 +49,12 @@ class MarketService:
         period: str,
         adjust: str,
     ) -> dict:
+        code = self._required_text(code)
+        start_date = self._optional_text(start_date)
+        end_date = self._optional_text(end_date)
+        period = self._default_text(period, "day")
+        adjust = self._default_text(adjust, "none")
+
         if period not in SUPPORTED_PERIODS:
             raise HTTPException(status_code=422, detail="unsupported period")
         if adjust not in SUPPORTED_ADJUST:
@@ -58,7 +86,12 @@ class MarketService:
         }
 
     def get_fund_nav(self, code: str, start_date: str | None, end_date: str | None) -> dict:
-        nav_dict = self.client.get_fund_nav(code)
+        code = self._required_text(code)
+        start_date = self._optional_text(start_date)
+        end_date = self._optional_text(end_date)
+
+        begin_date, finish_date = self._normalize_dates(start_date, end_date)
+        nav_dict = self.client.get_fund_nav(code, begin_date, finish_date)
         rows = fund_nav_dict_to_rows(nav_dict, code)
         if not rows:
             raise HTTPException(status_code=404, detail="no fund nav returned")
@@ -66,6 +99,7 @@ class MarketService:
         return {
             "code": code,
             "requested_dates": {"start_date": start_date, "end_date": end_date},
+            "normalized_dates": {"start_date": str(begin_date), "end_date": str(finish_date)},
             "rows": rows,
             "disclaimer": DISCLAIMER,
         }

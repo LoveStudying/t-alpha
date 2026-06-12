@@ -1,6 +1,6 @@
 # t-alpha 接口对接文档
 
-生成日期：2026-06-11
+生成日期：2026-06-12
 
 ## 1. 基本信息
 
@@ -25,7 +25,7 @@ OpenAPI 文档：
 
 ### 2.1 日期
 
-所有日期参数使用 `YYYYMMDD` 字符串，例如 `20240131`。
+所有日期参数使用 `YYYYMMDD` 字符串，例如 `20240131`。可选参数如果传空字符串，按未传处理。
 
 日期归一化规则：
 
@@ -88,6 +88,8 @@ OpenAPI 文档：
 | `end_date` | string | 否 | 最近交易日 | `YYYYMMDD` |
 | `period` | string | 否 | `day` | `day` 或 `60m` |
 | `adjust` | string | 否 | `none` | `none` 或 `forward` |
+
+可选参数如果传空字符串，按默认值处理；`code` 为必填参数，不能省略或传空字符串。
 
 请求示例：
 
@@ -169,8 +171,10 @@ GET /api/v1/market/fund/prices?code=510300.SH&period=day
 | 参数 | 类型 | 必填 | 默认 | 说明 |
 | --- | --- | --- | --- | --- |
 | `code` | string | 是 | 无 | 基金代码，例如 `000001.OF` |
-| `start_date` | string | 否 | 数据源默认范围 | `YYYYMMDD` |
-| `end_date` | string | 否 | 数据源默认范围 | `YYYYMMDD` |
+| `start_date` | string | 否 | 最近 10 个交易日开始日 | `YYYYMMDD` |
+| `end_date` | string | 否 | 最近交易日 | `YYYYMMDD` |
+
+可选参数如果传空字符串，按未传处理；`code` 为必填参数，不能省略或传空字符串。
 
 请求示例：
 
@@ -185,6 +189,10 @@ GET /api/v1/market/fund/nav?code=000001.OF&start_date=20240101&end_date=20240131
   "code": "000001.OF",
   "requested_dates": {
     "start_date": "20240101",
+    "end_date": "20240131"
+  },
+  "normalized_dates": {
+    "start_date": "20240102",
     "end_date": "20240131"
   },
   "rows": [
