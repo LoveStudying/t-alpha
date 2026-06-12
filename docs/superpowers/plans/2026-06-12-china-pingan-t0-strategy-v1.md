@@ -17,7 +17,7 @@ The spec touches strategy generation, backtesting, reporting, API, persistence, 
 1. Build strategy for one A-share code.
 2. Return 3-year metrics and recent 3-month trades.
 3. Enable monitoring only when the strategy passes gates.
-4. Send email when a new buy point appears.
+4. Send a buy email when a new buy point appears, create a virtual T0 position, then send a sell email when the 3% target or 10-trading-day timeout is reached.
 
 Do not add automatic order execution, account integration, overlapping T positions, high-sell/low-buy-back strategy, stop-loss, or portfolio allocation in this plan.
 
@@ -41,13 +41,13 @@ Modify:
 
 - `src/t_alpha/config.py`: Add configurable T0 defaults.
 - `src/t_alpha/constants.py`: Add strategy name constants used by reports, APIs, storage, and monitor jobs.
-- `src/t_alpha/storage/models.py`: Add persisted strategy report and active T0 position models.
-- `src/t_alpha/storage/repository.py`: Add report persistence and monitor helpers.
+- `src/t_alpha/storage/models.py`: Add persisted strategy report and virtual T0 position models.
+- `src/t_alpha/storage/repository.py`: Add report persistence, virtual position open/close, and monitor helpers.
 - `src/t_alpha/api/schemas.py`: Add request/response schemas for T0 build and monitor APIs.
 - `src/t_alpha/api/deps.py`: Add `get_strategy_service`.
 - `src/t_alpha/api/routes_strategy.py`: Add `/api/v1/strategy/t0/build` and `/api/v1/strategy/t0/monitor`.
-- `src/t_alpha/scheduler/jobs.py`: Add monitor-aware buy-alert flow and no-overlap position handling.
-- `src/t_alpha/notification/email_sender.py`: Include recent 3-month summary and v1 target/timeout fields.
+- `src/t_alpha/scheduler/jobs.py`: Add monitor-aware buy-alert and sell-alert flow with no-overlap virtual position handling.
+- `src/t_alpha/notification/email_sender.py`: Include recent 3-month summary, v1 target/timeout fields, and separate buy/sell alert builders.
 - `docs/api_integration.md`: Document new endpoints and response shape.
 
 ---
@@ -122,6 +122,7 @@ def test_strategy_params_default_values_match_design():
     assert params.trade_cost_rate == 0.0001
     assert params.min_trade_amount == 5000
     assert params.max_trade_amount == 20000
+    assert params.min_success_rate == 0.65
 ```
 
 - [ ] **Step 2: Run model tests to verify they fail**
@@ -159,7 +160,7 @@ class T0StrategyParams:
     max_trade_amount: int = 20000
     min_3y_trades: int = 60
     observe_min_3y_trades: int = 30
-    min_success_rate: float = 0.50
+    min_success_rate: float = 0.65
     boll_n: int = 20
     boll_k: float = 2.0
     boll_lower_buffer: float = 1.01
@@ -892,13 +893,13 @@ def evaluate_eligibility(
     if full_metrics.trade_count < params.min_3y_trades:
         return T0Eligibility(False, "observe", ["3年有效交易数为30到59笔，仅作为观察策略"])
     if full_metrics.success_rate <= params.min_success_rate:
-        reasons.append("3年做T成功率未超过50%")
+        reasons.append("3年做T成功率未超过65%")
     if validation_metrics.success_rate <= params.min_success_rate:
-        reasons.append("验证集成功率未超过50%")
+        reasons.append("验证集成功率未超过65%")
     if full_metrics.average_return <= 0:
         reasons.append("扣成本后平均单笔收益不为正")
     if recent_metrics.trade_count and recent_metrics.success_rate <= params.min_success_rate:
-        reasons.append("最近3个月成功率未超过50%")
+        reasons.append("最近3个月成功率未超过65%")
     if recent_metrics.trade_count < 3:
         reasons.append("最近3个月样本不足，只能观察近期健康度")
 
@@ -1186,9 +1187,12 @@ Expected: PASS.
 Write `tests/test_strategy_service.py`:
 
 ```python
+from datetime import datetime
+
 import pandas as pd
 
 from t_alpha.services_strategy import T0StrategyService
+from t_alpha.strategy.t0_models import T0Eligibility, T0Metrics, T0StrategyParams, T0StrategyReport
 
 
 class FakeClient:
@@ -1229,10 +1233,8 @@ def test_build_report_persists_report(monkeypatch):
     saved = {}
     service = T0StrategyService(FakeClient(), session=object())
 
-    def fake_optimize(code, daily_df, hourly_df):
-        from datetime import datetime
-        from t_alpha.strategy.t0_models import T0Eligibility, T0Metrics, T0StrategyParams, T0StrategyReport
-        metrics = T0Metrics(60, 31, 29, 31 / 60, 0.01, 0.01, 100.0, -0.02, 3)
+    def fake_optimize(code, daily_df, hourly_df, params_grid=None):
+        metrics = T0Metrics(60, 40, 20, 40 / 60, 0.01, 0.01, 100.0, -0.02, 3)
         return T0StrategyReport(
             code=code,
             strategy_name="mean_reversion_t0_v1",
@@ -1276,8 +1278,25 @@ def test_enable_monitor_requires_eligible_report(monkeypatch):
         monitored.append((code, strategy_name))
 
     monkeypatch.setattr(module, "enable_t0_monitor", fake_enable_t0_monitor)
+    monkeypatch.setattr(
+        T0StrategyService,
+        "build_report",
+        lambda self, code: T0StrategyReport(
+            code=code,
+            strategy_name="mean_reversion_t0_v1",
+            params=T0StrategyParams(),
+            full_metrics=T0Metrics(60, 40, 20, 40 / 60, 0.01, 0.01, 100.0, -0.02, 3),
+            train_metrics=T0Metrics(60, 40, 20, 40 / 60, 0.01, 0.01, 100.0, -0.02, 3),
+            validation_metrics=T0Metrics(60, 40, 20, 40 / 60, 0.01, 0.01, 100.0, -0.02, 3),
+            recent_metrics=T0Metrics(3, 2, 1, 2 / 3, 0.01, 0.01, 100.0, -0.02, 1),
+            recent_trades=[],
+            eligibility=T0Eligibility(True, "eligible", []),
+            generated_at=datetime(2024, 1, 1),
+            disclaimer="仅供研究参考，不构成投资建议。",
+        ),
+    )
 
-    service.enable_monitor("601318.SH", eligible=True)
+    service.enable_monitor("601318.SH")
 
     assert monitored == [("601318.SH", "mean_reversion_t0_v1")]
 ```
@@ -1302,6 +1321,7 @@ Modify `src/t_alpha/config.py` inside `Settings`:
     t0_trade_cost_rate: float = Field(default=0.0001, alias="T0_TRADE_COST_RATE")
     t0_min_3y_trades: int = Field(default=60, alias="T0_MIN_3Y_TRADES")
     t0_observe_min_3y_trades: int = Field(default=30, alias="T0_OBSERVE_MIN_3Y_TRADES")
+    t0_min_success_rate: float = Field(default=0.65, alias="T0_MIN_SUCCESS_RATE")
 ```
 
 - [ ] **Step 8: Implement strategy service**
@@ -1316,12 +1336,14 @@ from datetime import datetime
 
 from fastapi import HTTPException
 
-from t_alpha.backtest.t0_optimizer import optimize_t0_strategy
+from t_alpha.backtest.t0_optimizer import default_param_grid, optimize_t0_strategy
+from t_alpha.config import get_settings
 from t_alpha.constants import ASSET_STOCK
 from t_alpha.data.adjust import forward_adjust
 from t_alpha.data.calendar import previous_n_trade_days
 from t_alpha.data.market_data import period_to_ad_value
 from t_alpha.storage.repository import DEFAULT_STRATEGY, enable_t0_monitor, save_strategy_report
+from t_alpha.strategy.t0_models import T0StrategyParams
 
 
 class T0StrategyService:
@@ -1349,7 +1371,16 @@ class T0StrategyService:
         begin_date, end_date = self._date_window()
         daily_df = self._query_forward_kline(code, begin_date, end_date, "day")
         hourly_df = self._query_forward_kline(code, begin_date, end_date, "60m")
-        report = optimize_t0_strategy(code, daily_df, hourly_df)
+        settings = get_settings()
+        base_params = T0StrategyParams(
+            target_return=settings.t0_target_return,
+            max_holding_trade_days=settings.t0_max_holding_trade_days,
+            trade_cost_rate=settings.t0_trade_cost_rate,
+            min_3y_trades=settings.t0_min_3y_trades,
+            observe_min_3y_trades=settings.t0_observe_min_3y_trades,
+            min_success_rate=settings.t0_min_success_rate,
+        )
+        report = optimize_t0_strategy(code, daily_df, hourly_df, default_param_grid(base_params))
         payload = report.to_dict()
         save_strategy_report(
             self.session,
@@ -1363,9 +1394,10 @@ class T0StrategyService:
         )
         return report
 
-    def enable_monitor(self, code: str, eligible: bool):
-        if not eligible:
-            raise HTTPException(status_code=400, detail="strategy is not eligible for monitoring")
+    def enable_monitor(self, code: str):
+        report = self.build_report(code)
+        if not report.eligibility.eligible:
+            raise HTTPException(status_code=400, detail={"message": "strategy is not eligible for monitoring", "reasons": report.eligibility.reasons})
         enable_t0_monitor(self.session, code, DEFAULT_STRATEGY)
         return {"code": code, "strategy_name": DEFAULT_STRATEGY, "enabled": True, "enabled_at": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")}
 ```
@@ -1413,7 +1445,7 @@ from t_alpha.strategy.t0_models import T0Eligibility, T0Metrics, T0StrategyParam
 
 class FakeStrategyService:
     def build_report(self, code):
-        metrics = T0Metrics(60, 31, 29, 31 / 60, 0.01, 0.01, 100.0, -0.02, 3)
+        metrics = T0Metrics(60, 40, 20, 40 / 60, 0.01, 0.01, 100.0, -0.02, 3)
         return T0StrategyReport(
             code=code,
             strategy_name="mean_reversion_t0_v1",
@@ -1428,7 +1460,7 @@ class FakeStrategyService:
             disclaimer="仅供研究参考，不构成投资建议。",
         )
 
-    def enable_monitor(self, code, eligible):
+    def enable_monitor(self, code):
         return {"code": code, "strategy_name": "mean_reversion_t0_v1", "enabled": True, "enabled_at": "2024-01-01 00:00:00"}
 
 
@@ -1453,7 +1485,7 @@ def test_t0_build_endpoint_returns_report():
 
 def test_t0_monitor_endpoint_enables_monitor():
     client = TestClient(app)
-    response = client.post("/api/v1/strategy/t0/monitor", json={"code": "601318.SH", "eligible": True})
+    response = client.post("/api/v1/strategy/t0/monitor", json={"code": "601318.SH", "enabled": True})
 
     assert response.status_code == 200
     assert response.json()["enabled"] is True
@@ -1483,7 +1515,7 @@ class T0BuildRequest(BaseModel):
 
 class T0MonitorRequest(BaseModel):
     code: str
-    eligible: bool = True
+    enabled: bool = True
 
 
 class T0MonitorResponse(BaseModel):
@@ -1540,6 +1572,7 @@ from fastapi import APIRouter, Depends
 
 from t_alpha.api.deps import get_strategy_service
 from t_alpha.api.schemas import T0BuildRequest, T0BuildResponse, T0MonitorRequest, T0MonitorResponse
+from t_alpha.storage.repository import DEFAULT_STRATEGY
 from t_alpha.services_strategy import T0StrategyService
 ```
 
@@ -1554,7 +1587,9 @@ def build_t0_strategy(request: T0BuildRequest, service: T0StrategyService = Depe
 
 @router.post("/t0/monitor", response_model=T0MonitorResponse)
 def monitor_t0_strategy(request: T0MonitorRequest, service: T0StrategyService = Depends(get_strategy_service)):
-    return T0MonitorResponse.model_validate(service.enable_monitor(request.code, request.eligible))
+    if not request.enabled:
+        return T0MonitorResponse.model_validate({"code": request.code, "strategy_name": DEFAULT_STRATEGY, "enabled": False, "enabled_at": ""})
+    return T0MonitorResponse.model_validate(service.enable_monitor(request.code))
 ```
 
 - [ ] **Step 6: Run API tests**
@@ -1718,8 +1753,11 @@ Append to `T0StrategyService` in `src/t_alpha/services_strategy.py`:
             return None
         return {
             "code": code,
-            "signal_time": now.strftime("%Y-%m-%d %H:%M:%S"),
+            "signal_time": latest_candidate.signal_time.strftime("%Y-%m-%d %H:%M:%S"),
+            "buy_alert_time": now.strftime("%Y-%m-%d %H:%M:%S"),
+            "opened_trade_date": now.strftime("%Y-%m-%d"),
             "current_price": latest_candidate.signal_price,
+            "reference_buy_price": latest_candidate.signal_price,
             "suggested_buy_zone": [round(latest_candidate.signal_price * 0.995, 3), round(latest_candidate.signal_price * 1.002, 3)],
             "suggested_amount": suggested_amount,
             "suggested_shares": suggested_shares,
@@ -1852,9 +1890,9 @@ def test_build_t0_alert_email_contains_recent_summary():
         "suggested_shares": 300,
         "target_sell_price": 41.2,
         "max_holding_trade_days": 10,
-        "full_success_rate": 0.55,
+        "full_success_rate": 0.66,
         "full_trade_count": 60,
-        "recent_success_rate": 0.60,
+        "recent_success_rate": 0.70,
         "recent_trade_count": 5,
         "reasons": ["BOLL lower band touch"],
     }
@@ -1863,7 +1901,7 @@ def test_build_t0_alert_email_contains_recent_summary():
 
     assert "[做T提醒]" in subject
     assert "目标卖出价: 41.2" in body
-    assert "最近3个月成功率: 60.00%" in body
+    assert "最近3个月成功率: 70.00%" in body
 ```
 
 - [ ] **Step 11: Implement email builder**
@@ -1932,6 +1970,378 @@ git commit -m "feat: add t0 monitor job and email content"
 
 ---
 
+### Task 7A: Sell Alert Lifecycle for Virtual T0 Positions
+
+**Files:**
+- Modify: `src/t_alpha/storage/repository.py`
+- Modify: `src/t_alpha/services_strategy.py`
+- Modify: `src/t_alpha/scheduler/jobs.py`
+- Modify: `src/t_alpha/notification/email_sender.py`
+- Modify: `tests/test_storage.py`
+- Modify: `tests/test_strategy_service.py`
+- Modify: `tests/test_scheduler.py`
+- Modify: `tests/test_email_sender.py`
+
+- [ ] **Step 1: Add failing storage test for closing a virtual T0 position**
+
+Append to `tests/test_storage.py`:
+
+```python
+from t_alpha.storage.repository import close_t0_position
+
+
+def test_close_t0_position_marks_position_closed(session):
+    row = open_t0_position(
+        session,
+        code="601318.SH",
+        strategy_name="mean_reversion_t0_v1",
+        payload_json='{"buy_price": 40.0, "target_sell_price": 41.2}',
+    )
+
+    close_t0_position(session, row, payload_json='{"sell_price": 41.2, "exit_reason": "target"}')
+
+    assert row.status == "closed"
+    assert row.closed_at is not None
+    assert '"exit_reason": "target"' in row.payload_json
+```
+
+- [ ] **Step 2: Implement close helper**
+
+Append to `src/t_alpha/storage/repository.py`:
+
+```python
+def close_t0_position(session: Session, position: T0Position, payload_json: str) -> T0Position:
+    position.status = "closed"
+    position.payload_json = payload_json
+    position.closed_at = datetime.utcnow()
+    session.flush()
+    return position
+```
+
+If `datetime` is not imported in `repository.py`, add:
+
+```python
+from datetime import datetime
+```
+
+- [ ] **Step 3: Run storage close-position test**
+
+Run:
+
+```powershell
+py -3 -m pytest tests/test_storage.py::test_close_t0_position_marks_position_closed -q
+```
+
+Expected: PASS.
+
+- [ ] **Step 4: Add failing service tests for sell signal generation**
+
+Append to `tests/test_strategy_service.py`:
+
+```python
+import json
+
+
+def test_generate_sell_signal_when_target_price_reached():
+    service = T0StrategyService(FakeClient(), session=object())
+    position_payload = {
+        "code": "601318.SH",
+        "signal_time": "2024-01-02 10:00:00",
+        "buy_alert_time": "2024-01-02 10:05:00",
+        "reference_buy_price": 40.0,
+        "suggested_shares": 300,
+        "suggested_amount": 12000,
+        "target_sell_price": 41.2,
+        "max_holding_trade_days": 10,
+        "opened_trade_date": "2024-01-02",
+        "reasons": ["BOLL lower band touch"],
+    }
+
+    payload = service.generate_sell_signal(position_payload, current_price=41.25, holding_trade_days=2, now=datetime(2024, 1, 4, 10))
+
+    assert payload is not None
+    assert payload["exit_reason"] == "target"
+    assert payload["sell_alert_type"] == "止盈达标"
+
+
+def test_generate_sell_signal_when_timeout_reached():
+    service = T0StrategyService(FakeClient(), session=object())
+    position_payload = {
+        "code": "601318.SH",
+        "signal_time": "2024-01-02 10:00:00",
+        "buy_alert_time": "2024-01-02 10:05:00",
+        "reference_buy_price": 40.0,
+        "suggested_shares": 300,
+        "suggested_amount": 12000,
+        "target_sell_price": 41.2,
+        "max_holding_trade_days": 10,
+        "opened_trade_date": "2024-01-02",
+        "reasons": ["BOLL lower band touch"],
+    }
+
+    payload = service.generate_sell_signal(position_payload, current_price=39.5, holding_trade_days=10, now=datetime(2024, 1, 16, 14, 55))
+
+    assert payload is not None
+    assert payload["exit_reason"] == "timeout"
+    assert payload["sell_alert_type"] == "超时退出"
+```
+
+- [ ] **Step 5: Implement sell-signal service methods**
+
+Append to `T0StrategyService` in `src/t_alpha/services_strategy.py`:
+
+```python
+    def generate_sell_signal(self, position_payload: dict, current_price: float, holding_trade_days: int, now: datetime) -> dict | None:
+        target_sell_price = float(position_payload["target_sell_price"])
+        max_holding_trade_days = int(position_payload["max_holding_trade_days"])
+        exit_reason = None
+        sell_alert_type = None
+        trigger_price = current_price
+
+        if current_price >= target_sell_price:
+            exit_reason = "target"
+            sell_alert_type = "止盈达标"
+            trigger_price = target_sell_price
+        elif holding_trade_days >= max_holding_trade_days:
+            exit_reason = "timeout"
+            sell_alert_type = "超时退出"
+
+        if exit_reason is None:
+            return None
+
+        buy_price = float(position_payload["reference_buy_price"])
+        shares = int(position_payload["suggested_shares"])
+        gross_return = (trigger_price - buy_price) / buy_price
+        net_return = gross_return - get_settings().t0_trade_cost_rate
+        return {
+            **position_payload,
+            "sell_alert_time": now.strftime("%Y-%m-%d %H:%M:%S"),
+            "current_price": current_price,
+            "trigger_price": round(trigger_price, 3),
+            "sell_alert_type": sell_alert_type,
+            "exit_reason": exit_reason,
+            "holding_trade_days": holding_trade_days,
+            "gross_return": gross_return,
+            "net_return": net_return,
+            "estimated_profit_amount": round((trigger_price - buy_price) * shares, 2),
+            "position_status": "closed",
+        }
+
+    def mark_position_closed(self, position, payload: dict) -> None:
+        import json
+        from t_alpha.storage.repository import close_t0_position
+
+        close_t0_position(self.session, position, json.dumps(payload, ensure_ascii=False))
+```
+
+- [ ] **Step 6: Run service sell-signal tests**
+
+Run:
+
+```powershell
+py -3 -m pytest tests/test_strategy_service.py::test_generate_sell_signal_when_target_price_reached tests/test_strategy_service.py::test_generate_sell_signal_when_timeout_reached -q
+```
+
+Expected: PASS.
+
+- [ ] **Step 7: Add failing scheduler test for sell-priority behavior**
+
+Append to `tests/test_scheduler.py`:
+
+```python
+class FakeOpenPosition:
+    payload_json = '{"code": "601318.SH", "reference_buy_price": 40.0, "target_sell_price": 41.2, "suggested_shares": 300, "max_holding_trade_days": 10}'
+
+
+class FakeSellMonitorService(FakeMonitorService):
+    def __init__(self):
+        super().__init__()
+        self.closed = []
+
+    def get_open_t0_position(self, code):
+        return FakeOpenPosition()
+
+    def get_current_price(self, code):
+        return 41.25
+
+    def holding_trade_days(self, position, now):
+        return 2
+
+    def generate_sell_signal(self, position_payload, current_price, holding_trade_days, now):
+        return {"code": "601318.SH", "exit_reason": "target", "sell_alert_type": "止盈达标"}
+
+    def mark_position_closed(self, position, payload):
+        self.closed.append(payload)
+
+
+class FakeSellEmailSender(FakeEmailSender):
+    def send_t0_sell_signal(self, payload):
+        self.messages.append(payload)
+
+
+def test_t0_monitor_job_sends_sell_signal_before_new_buy_signal():
+    service = FakeSellMonitorService()
+    sender = FakeSellEmailSender()
+    job = T0MonitorJob(lambda: [20240104], service, sender)
+
+    sent_count = job.run_once(datetime(2024, 1, 4, 10, 0))
+
+    assert sent_count == 1
+    assert sender.messages[0]["exit_reason"] == "target"
+    assert service.closed[0]["sell_alert_type"] == "止盈达标"
+```
+
+- [ ] **Step 8: Update monitor job to scan sell points before buy points**
+
+Replace the loop body inside `T0MonitorJob.run_once` in `src/t_alpha/scheduler/jobs.py`:
+
+```python
+        sent_count = 0
+        for code in self.monitor_service.list_enabled_t0_codes():
+            open_position = self.monitor_service.get_open_t0_position(code)
+            if open_position is not None:
+                import json
+
+                position_payload = json.loads(open_position.payload_json)
+                current_price = self.monitor_service.get_current_price(code)
+                holding_days = self.monitor_service.holding_trade_days(open_position, now)
+                sell_payload = self.monitor_service.generate_sell_signal(position_payload, current_price, holding_days, now)
+                if sell_payload is None:
+                    continue
+                self.email_sender.send_t0_sell_signal(sell_payload)
+                self.monitor_service.mark_position_closed(open_position, sell_payload)
+                sent_count += 1
+                continue
+
+            payload = self.monitor_service.generate_realtime_signal(code, now)
+            if payload is None:
+                continue
+            self.email_sender.send_t0_signal(payload)
+            self.monitor_service.mark_position_open(code, payload)
+            sent_count += 1
+        return sent_count
+```
+
+Add service methods used by the scheduler:
+
+```python
+    def get_open_t0_position(self, code: str):
+        from t_alpha.storage.repository import get_open_t0_position
+
+        return get_open_t0_position(self.session, code, DEFAULT_STRATEGY)
+
+    def get_current_price(self, code: str) -> float:
+        begin_date, end_date = self._date_window()
+        hourly_df = self._query_forward_kline(code, begin_date, end_date, "60m")
+        return float(hourly_df.sort_values("kline_time").iloc[-1]["close"])
+
+    def holding_trade_days(self, position, now: datetime) -> int:
+        payload = json.loads(position.payload_json)
+        opened = datetime.strptime(payload["opened_trade_date"], "%Y-%m-%d").date()
+        calendar = self.client.get_calendar()
+        trade_dates = [datetime.strptime(str(day), "%Y%m%d").date() for day in calendar]
+        return sum(opened <= day <= now.date() for day in trade_dates)
+```
+
+- [ ] **Step 9: Add failing sell-email content test**
+
+Append to `tests/test_email_sender.py`:
+
+```python
+from t_alpha.notification.email_sender import build_t0_sell_alert_email
+
+
+def test_build_t0_sell_alert_email_contains_exit_reason_and_profit():
+    payload = {
+        "code": "601318.SH",
+        "signal_time": "2024-01-02 10:00:00",
+        "buy_alert_time": "2024-01-02 10:05:00",
+        "reference_buy_price": 40.0,
+        "suggested_shares": 300,
+        "target_sell_price": 41.2,
+        "sell_alert_time": "2024-01-04 10:00:00",
+        "current_price": 41.25,
+        "trigger_price": 41.2,
+        "sell_alert_type": "止盈达标",
+        "holding_trade_days": 2,
+        "gross_return": 0.03,
+        "net_return": 0.0299,
+        "estimated_profit_amount": 360.0,
+        "position_status": "closed",
+    }
+
+    subject, body = build_t0_sell_alert_email(payload)
+
+    assert "[做T卖点提醒]" in subject
+    assert "触发类型: 止盈达标" in body
+    assert "本次虚拟 T 仓状态: closed" in body
+```
+
+- [ ] **Step 10: Implement sell email builder and sender method**
+
+Append to `src/t_alpha/notification/email_sender.py`:
+
+```python
+def build_t0_sell_alert_email(payload: dict) -> tuple[str, str]:
+    subject = f"[做T卖点提醒] {payload['code']} {payload['sell_alert_type']} 触发"
+    body = "\n".join(
+        [
+            f"股票代码: {payload['code']}",
+            f"原买点信号时间: {payload['signal_time']}",
+            f"买入提醒发送时间: {payload['buy_alert_time']}",
+            f"参考买入价: {payload['reference_buy_price']}",
+            f"建议买入股数: {payload['suggested_shares']}",
+            f"目标卖出价: {payload['target_sell_price']}",
+            f"当前价格: {payload['current_price']}",
+            f"触发价格: {payload['trigger_price']}",
+            f"卖点触发时间: {payload['sell_alert_time']}",
+            f"持仓交易日数: {payload['holding_trade_days']}",
+            f"触发类型: {payload['sell_alert_type']}",
+            f"毛收益率: {payload['gross_return']:.2%}",
+            f"扣成本后收益率估算: {payload['net_return']:.2%}",
+            f"收益金额估算: {payload['estimated_profit_amount']}",
+            f"本次虚拟 T 仓状态: {payload['position_status']}",
+            "风险提示: 若未按买点提醒实际买入，本卖点仅为策略跟踪信号，不代表真实持仓卖出建议。",
+        ]
+    )
+    return subject, body
+```
+
+Add method to `EmailSender`:
+
+```python
+    def send_t0_sell_signal(self, payload: dict) -> None:
+        subject, body = build_t0_sell_alert_email(payload)
+        message = EmailMessage()
+        message["Subject"] = subject
+        message["From"] = self.settings.smtp_from
+        message["To"] = self.settings.alert_to
+        message.set_content(body)
+
+        with smtplib.SMTP_SSL(self.settings.smtp_host, self.settings.smtp_port) as smtp:
+            smtp.login(self.settings.smtp_username, self.settings.smtp_password)
+            smtp.send_message(message)
+```
+
+- [ ] **Step 11: Run sell lifecycle tests**
+
+Run:
+
+```powershell
+py -3 -m pytest tests/test_storage.py tests/test_strategy_service.py tests/test_scheduler.py tests/test_email_sender.py -q
+```
+
+Expected: PASS.
+
+- [ ] **Step 12: Commit**
+
+```powershell
+git add src/t_alpha/storage/repository.py src/t_alpha/services_strategy.py src/t_alpha/scheduler/jobs.py src/t_alpha/notification/email_sender.py tests/test_storage.py tests/test_strategy_service.py tests/test_scheduler.py tests/test_email_sender.py
+git commit -m "feat: add t0 sell alert lifecycle"
+```
+
+---
+
 ### Task 8: API Documentation and End-to-End Test Run
 
 **Files:**
@@ -1966,7 +2376,7 @@ Add this section to `docs/api_integration.md` after the default watchlist sectio
 - 最长持仓 10 个交易日。
 - v1 不设置中途止损。
 - 默认交易成本为万 1，可通过环境变量配置。
-- 3 年有效交易数不少于 60 笔且成功率大于 50% 才可进入监控候选。
+- 3 年有效交易数不少于 60 笔且成功率大于 65% 才可进入监控候选。
 
 ### `POST /api/v1/strategy/t0/monitor`
 
@@ -1977,7 +2387,7 @@ Add this section to `docs/api_integration.md` after the default watchlist sectio
 ```json
 {
   "code": "601318.SH",
-  "eligible": true
+  "enabled": true
 }
 ```
 ```
@@ -1992,6 +2402,7 @@ T0_MAX_HOLDING_TRADE_DAYS=10
 T0_TRADE_COST_RATE=0.0001
 T0_MIN_3Y_TRADES=60
 T0_OBSERVE_MIN_3Y_TRADES=30
+T0_MIN_SUCCESS_RATE=0.65
 ```
 
 - [ ] **Step 3: Run full test suite**
@@ -2054,4 +2465,7 @@ Review the final behavior:
 - Backtest uses next 60m open as entry.
 - Exit occurs at 3% target or 10th trading day close.
 - Same stock does not open overlapping T positions.
-- Strategy is marked eligible only when the 3-year gate, success-rate gate, validation gate, and positive-return gate pass.
+- Strategy is marked eligible only when the 3-year gate, `>65%` full success-rate gate, `>65%` validation gate, and positive-return gate pass.
+- Buy alerts create a persisted virtual T0 position.
+- Open virtual T0 positions are monitored for sell alerts before any new buy scan.
+- Sell alerts close the virtual T0 position after target or timeout.
