@@ -5,7 +5,7 @@
 ## 1. 基本信息
 
 - 服务类型：HTTP JSON API
-- 默认本地地址：`http://127.0.0.1:8000`
+- 默认本地地址：`http://127.0.0.1:8867`
 - API 前缀：`/api/v1`
 - 鉴权：当前版本未启用接口鉴权，建议部署到内网或网关后再开放给其他项目。
 - 风险声明：行情、回测和提醒结果仅供研究参考，不构成投资建议。
@@ -13,7 +13,7 @@
 启动命令：
 
 ```powershell
-uvicorn t_alpha.main:app --host 127.0.0.1 --port 8000
+uvicorn t_alpha.main:app --host 127.0.0.1 --port 8867
 ```
 
 OpenAPI 文档：

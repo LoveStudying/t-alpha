@@ -30,6 +30,8 @@ class Settings(BaseSettings):
     alert_to: str = Field(default="", alias="ALERT_TO")
 
     app_env: str = Field(default="dev", alias="APP_ENV")
+    app_host: str = Field(default="127.0.0.1", alias="APP_HOST")
+    app_port: int = Field(default=8867, alias="APP_PORT")
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
     default_test_code: str = DEFAULT_TEST_CODE
     min_trade_amount: int = Field(default=5000, alias="MIN_TRADE_AMOUNT")
@@ -52,5 +54,5 @@ class Settings(BaseSettings):
         return (
             f"AD_USERNAME={self.ad_username}, AD_HOST={self.ad_host}, AD_PORT={self.ad_port}, "
             f"DB_HOST={self.db_host}, DB_PORT={self.db_port}, DB_NAME={self.db_name}, "
-            f"APP_ENV={self.app_env}, LOG_LEVEL={self.log_level}"
+            f"APP_ENV={self.app_env}, APP_HOST={self.app_host}, APP_PORT={self.app_port}, LOG_LEVEL={self.log_level}"
         )

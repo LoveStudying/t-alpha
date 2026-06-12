@@ -17,6 +17,8 @@ def test_settings_reads_required_environment(monkeypatch):
     assert settings.ad_username == "210400052339"
     assert settings.ad_port == 8600
     assert settings.db_name == "t_alpha"
+    assert settings.app_host == "127.0.0.1"
+    assert settings.app_port == 8867
     assert settings.mysql_url.startswith("mysql+pymysql://testroot:")
     assert settings.smtp_host == "smtp.163.com"
     assert settings.commission_rate == 0.0001
@@ -32,3 +34,13 @@ def test_settings_masks_secrets(monkeypatch):
 
     assert "Ttxs0727" not in settings.safe_summary()
     assert "zbmlhj8s" not in settings.safe_summary()
+
+
+def test_settings_reads_api_server_port(monkeypatch):
+    monkeypatch.setenv("APP_HOST", "0.0.0.0")
+    monkeypatch.setenv("APP_PORT", "9000")
+
+    settings = Settings()
+
+    assert settings.app_host == "0.0.0.0"
+    assert settings.app_port == 9000

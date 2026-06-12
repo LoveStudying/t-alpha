@@ -2220,7 +2220,7 @@ uvicorn t_alpha.main:app --reload
 Expected:
 
 ```text
-Uvicorn running on http://127.0.0.1:8000
+Uvicorn running on http://127.0.0.1:8867
 ```
 
 - [ ] **Step 7: Commit**
