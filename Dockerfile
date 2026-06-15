@@ -1,4 +1,4 @@
-FROM python:3.11-slim
+FROM crpi-36rftbsqfy7g8oj0.cn-beijing.personal.cr.aliyuncs.com/zhuliye/python:3.11-slim
 
 ARG AMAZINGDATA_SDK_REPO=https://gitee.com/cgs2026/xysz.git
 ARG AMAZINGDATA_VERSION=1.1.8
