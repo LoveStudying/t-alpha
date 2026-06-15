@@ -37,6 +37,12 @@ class Settings(BaseSettings):
     min_trade_amount: int = Field(default=5000, alias="MIN_TRADE_AMOUNT")
     max_trade_amount: int = Field(default=20000, alias="MAX_TRADE_AMOUNT")
     commission_rate: float = Field(default=0.0001, alias="COMMISSION_RATE")
+    t0_target_return: float = Field(default=0.03, alias="T0_TARGET_RETURN")
+    t0_max_holding_trade_days: int = Field(default=10, alias="T0_MAX_HOLDING_TRADE_DAYS")
+    t0_trade_cost_rate: float = Field(default=0.0001, alias="T0_TRADE_COST_RATE")
+    t0_min_3y_trades: int = Field(default=60, alias="T0_MIN_3Y_TRADES")
+    t0_observe_min_3y_trades: int = Field(default=30, alias="T0_OBSERVE_MIN_3Y_TRADES")
+    t0_min_success_rate: float = Field(default=0.65, alias="T0_MIN_SUCCESS_RATE")
 
     @cached_property
     def mysql_url(self) -> str:

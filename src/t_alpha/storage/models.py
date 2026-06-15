@@ -53,3 +53,30 @@ class AlertRecord(Base):
     sent: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     error_message: Mapped[str] = mapped_column(Text, nullable=False, default="")
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
+
+
+class T0StrategyReportRow(Base):
+    __tablename__ = "t0_strategy_reports"
+    __table_args__ = (UniqueConstraint("code", "strategy_name", name="uq_t0_report_code_strategy"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    code: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    strategy_name: Mapped[str] = mapped_column(String(64), nullable=False)
+    params_json: Mapped[str] = mapped_column(Text, nullable=False)
+    report_json: Mapped[str] = mapped_column(Text, nullable=False)
+    eligible: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    eligibility_level: Mapped[str] = mapped_column(String(32), nullable=False, default="invalid")
+    generated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class T0Position(Base):
+    __tablename__ = "t0_positions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    code: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    strategy_name: Mapped[str] = mapped_column(String(64), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="open", index=True)
+    payload_json: Mapped[str] = mapped_column(Text, nullable=False)
+    opened_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)

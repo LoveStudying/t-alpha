@@ -1,4 +1,5 @@
 DEFAULT_TEST_CODE = "601318.SH"
+DEFAULT_T0_STRATEGY = "mean_reversion_t0_v1"
 DEFAULT_TEST_NAME = "中国平安"
 PROJECT_DB_NAME = "t_alpha"
 DISCLAIMER = "仅供研究参考，不构成投资建议。"

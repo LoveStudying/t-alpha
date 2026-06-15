@@ -48,3 +48,33 @@ class FundNavResponse(BaseModel):
     normalized_dates: DateRange
     rows: List[FundNavRow]
     disclaimer: str = Field(default=DISCLAIMER)
+
+
+class T0BuildRequest(BaseModel):
+    code: str = Field(min_length=1)
+
+
+class T0MonitorRequest(BaseModel):
+    code: str = Field(min_length=1)
+    enabled: bool = True
+
+
+class T0BuildResponse(BaseModel):
+    code: str
+    strategy_name: str
+    params: dict
+    full_metrics: dict
+    train_metrics: dict
+    validation_metrics: dict
+    recent_metrics: dict
+    recent_trades: list[dict]
+    eligibility: dict
+    generated_at: str
+    disclaimer: str = Field(default=DISCLAIMER)
+
+
+class T0MonitorResponse(BaseModel):
+    code: str
+    enabled: bool
+    strategy_name: str
+    reason: Optional[str] = None

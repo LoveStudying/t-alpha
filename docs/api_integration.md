@@ -226,7 +226,44 @@ GET /api/v1/market/fund/nav?code=000001.OF&start_date=20240101&end_date=20240131
 }
 ```
 
-## 9. 对接建议
+## 9. T0 strategy API
+
+### `POST /api/v1/strategy/t0/build`
+
+Builds a low-buy T0 strategy report for one A-share code. The response includes strategy params, full/train/validation/recent metrics, recent trades, eligibility, generated time, and disclaimer.
+
+Request:
+```json
+{
+  "code": "601318.SH"
+}
+```
+
+Key v1 assumptions:
+- Low-buy T0 only: buy first, then attribute an equal-share sell from existing base shares.
+- Single trade amount is between 5000 and 20000 CNY.
+- Backtest entry uses the next 60-minute bar open after signal confirmation.
+- Target sell return is 3%.
+- Maximum holding period is 10 trading days.
+- No stop-loss, no account position check, no auto order placement.
+- Default cost rate is 0.0001.
+- Monitor eligibility requires enough 3-year trades, full and validation success-rate gates, and positive average net return.
+
+### `POST /api/v1/strategy/t0/monitor`
+
+Enables or disables T0 monitoring for a strategy report that passed the server-side eligibility gate.
+
+Request:
+```json
+{
+  "code": "601318.SH",
+  "enabled": true
+}
+```
+
+Ineligible or missing reports are not enabled for monitoring.
+
+## 10. 对接建议
 
 1. 调用方应读取 `normalized_dates`，不要假设请求日期就是实际查询日期。
 2. 调用方应展示或传递 `disclaimer` 字段。
