@@ -35,6 +35,7 @@ class PriceResponse(BaseModel):
 
 class FundNavRow(BaseModel):
     price_date: str
+    ann_date: Optional[str] = None
     unit_nav: Optional[float] = None
     accum_nav: Optional[float] = None
     adj_unit_nav: Optional[float] = None

@@ -224,7 +224,7 @@ GET /api/v1/market/stock/prices?code=000001.SZ&adjust=forward
 
 - 先按 ETF/场内基金代码校验
 - 调用 `MarketData.query_kline`
-- 对场外开放式基金净值，调用 `InfoData.get_fund_nav([code], is_local=False)`，返回 `PRICE_DATE`、`UNIT_NAV`、`ACCUM_NAV`、`ADJ_UNIT_NAV`、`INNER_CODE`、`OUTER_CODE`
+- 对场外开放式基金净值，调用 `InfoData.get_fund_nav([code], is_local=False)`，返回 `PRICE_DATE`、`ANN_DATE`、`UNIT_NAV`、`ACCUM_NAV`、`ADJ_UNIT_NAV`、`INNER_CODE`、`OUTER_CODE`
 - 对 ETF 可附加份额和 IOPV：
   - `InfoData.get_fund_share`
   - `InfoData.get_fund_iopv`
@@ -246,6 +246,7 @@ GET /api/v1/market/fund/nav?code=000001.OF&start_date=20240101&end_date=20240131
   "rows": [
     {
       "price_date": "20240102",
+      "ann_date": "20240103",
       "unit_nav": 1.2345,
       "accum_nav": 2.3456,
       "adj_unit_nav": 1.4567,

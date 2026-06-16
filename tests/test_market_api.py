@@ -22,7 +22,7 @@ class FakeMarketService:
             "code": code,
             "requested_dates": {"start_date": start_date, "end_date": end_date},
             "normalized_dates": {"start_date": "20240102", "end_date": "20240110"},
-            "rows": [{"price_date": "20240102", "unit_nav": 1.0, "accum_nav": 1.1, "adj_unit_nav": 1.2, "inner_code": "", "outer_code": "000001"}],
+            "rows": [{"price_date": "20240102", "ann_date": "20240103", "unit_nav": 1.0, "accum_nav": 1.1, "adj_unit_nav": 1.2, "inner_code": "", "outer_code": "000001"}],
             "disclaimer": "仅供研究参考，不构成投资建议。",
         }
 
@@ -82,6 +82,7 @@ def test_fund_nav_endpoint_shape():
     response = client.get("/api/v1/market/fund/nav?code=000001.OF")
     assert response.status_code == 200
     assert response.json()["rows"][0]["unit_nav"] == 1.0
+    assert response.json()["rows"][0]["ann_date"] == "20240103"
 
 
 def test_health_endpoint():

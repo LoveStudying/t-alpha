@@ -45,6 +45,7 @@ def fund_nav_dict_to_rows(nav_dict: dict[str, pd.DataFrame], code: str) -> list[
         rows.append(
             {
                 "price_date": str(row.get("PRICE_DATE", ""))[:8],
+                "ann_date": str(row.get("ANN_DATE", ""))[:8] if pd.notna(row.get("ANN_DATE")) else None,
                 "unit_nav": float(row["UNIT_NAV"]) if pd.notna(row.get("UNIT_NAV")) else None,
                 "accum_nav": float(row["ACCUM_NAV"]) if pd.notna(row.get("ACCUM_NAV")) else None,
                 "adj_unit_nav": float(row["ADJ_UNIT_NAV"]) if pd.notna(row.get("ADJ_UNIT_NAV")) else None,

@@ -27,6 +27,7 @@ def test_fund_nav_dict_to_rows_serializes_nav_fields():
     nav_df = pd.DataFrame(
         {
             "PRICE_DATE": ["20240102"],
+            "ANN_DATE": ["20240103"],
             "UNIT_NAV": [1.2345],
             "ACCUM_NAV": [2.3456],
             "ADJ_UNIT_NAV": [1.4567],
@@ -40,6 +41,7 @@ def test_fund_nav_dict_to_rows_serializes_nav_fields():
     assert rows == [
         {
             "price_date": "20240102",
+            "ann_date": "20240103",
             "unit_nav": 1.2345,
             "accum_nav": 2.3456,
             "adj_unit_nav": 1.4567,

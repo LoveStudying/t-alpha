@@ -198,6 +198,7 @@ GET /api/v1/market/fund/nav?code=000001.OF&start_date=20240101&end_date=20240131
   "rows": [
     {
       "price_date": "20240102",
+      "ann_date": "20240103",
       "unit_nav": 1.2345,
       "accum_nav": 2.3456,
       "adj_unit_nav": 1.4567,
