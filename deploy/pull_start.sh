@@ -4,6 +4,11 @@ set -Eeuo pipefail
 
 # 基础部署参数，可在执行脚本时通过同名环境变量覆盖。
 IMAGE="${IMAGE:-crpi-36rftbsqfy7g8oj0.cn-beijing.personal.cr.aliyuncs.com/zhuliye/t-alpha:latest}"
+IMAGE_REPOSITORY="${IMAGE%%@*}"
+IMAGE_LAST_PATH="${IMAGE_REPOSITORY##*/}"
+if [[ "$IMAGE_LAST_PATH" == *:* ]]; then
+  IMAGE_REPOSITORY="${IMAGE_REPOSITORY%:*}"
+fi
 CONTAINER_NAME="${CONTAINER_NAME:-t-alpha}"
 HOST_PORT="${HOST_PORT:-8867}"
 CONTAINER_PORT="${CONTAINER_PORT:-8867}"
@@ -22,6 +27,38 @@ log() {
 fail() {
   printf '[t-alpha] ERROR: %s\n' "$*" >&2
   exit 1
+}
+
+# 清理同一镜像仓库下 tag 为 <none> 的旧镜像，避免每次发布后持续占用磁盘。
+cleanup_old_untagged_images() {
+  local image_ids image_id removed failed
+
+  removed=0
+  failed=0
+  if ! image_ids="$(docker images --format '{{.Repository}} {{.Tag}} {{.ID}}' | awk -v repository="$IMAGE_REPOSITORY" '$1 == repository && $2 == "<none>" { print $3 }' | sort -u)"; then
+    log "could not list old untagged images for: $IMAGE_REPOSITORY"
+    return 0
+  fi
+
+  if [ -z "$image_ids" ]; then
+    log "no old untagged images to remove for: $IMAGE_REPOSITORY"
+    return 0
+  fi
+
+  while IFS= read -r image_id; do
+    [ -n "$image_id" ] || continue
+    if docker rmi "$image_id" >/dev/null; then
+      removed=$((removed + 1))
+    else
+      failed=$((failed + 1))
+      log "could not remove old untagged image: $image_id"
+    fi
+  done <<< "$image_ids"
+
+  log "removed $removed old untagged image(s) for: $IMAGE_REPOSITORY"
+  if [ "$failed" -gt 0 ]; then
+    log "$failed old untagged image(s) were kept because Docker refused removal"
+  fi
 }
 
 # 检查 Docker 命令和 Docker 服务是否可用。
@@ -70,6 +107,7 @@ while [ "$SECONDS" -lt "$deadline" ]; do
       log "container is $status"
       log "health: http://127.0.0.1:${HOST_PORT}/health"
       log "api docs: http://127.0.0.1:${HOST_PORT}/docs"
+      cleanup_old_untagged_images
       exit 0
       ;;
     unhealthy|exited|dead)
