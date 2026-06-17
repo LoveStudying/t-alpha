@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import List, Literal, Optional
+from datetime import datetime
+from typing import Any, List, Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -94,3 +95,104 @@ class LoginResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     user: AdminUser
+
+
+class PagedResponse(BaseModel):
+    items: list[dict[str, Any]]
+    total: int
+    limit: int
+    offset: int
+
+
+class AdminOverview(BaseModel):
+    app_env: str
+    app_host: str
+    app_port: int
+    watchlist_count: int
+    enabled_watchlist_count: int
+    report_count: int
+    open_position_count: int
+    recent_alert_count: int
+
+
+class SettingsSummary(BaseModel):
+    app_env: str
+    app_host: str
+    app_port: int
+    log_level: str
+    ad_username: str
+    ad_host: str
+    ad_port: int
+    db_host: str
+    db_port: int
+    db_name: str
+    smtp_host: str
+    smtp_port: int
+    smtp_configured: bool
+    alert_to_configured: bool
+    admin_username: str
+    admin_configured: bool
+    t0_params: dict[str, Any]
+
+
+class WatchlistCreate(BaseModel):
+    code: str = Field(min_length=1)
+    name: str = ""
+    enabled: bool = True
+    strategy_name: str = "mean_reversion_t0_v1"
+    note: str = ""
+
+
+class WatchlistUpdate(BaseModel):
+    code: Optional[str] = None
+    name: Optional[str] = None
+    enabled: Optional[bool] = None
+    strategy_name: Optional[str] = None
+    note: Optional[str] = None
+
+
+class WatchlistOut(BaseModel):
+    id: int
+    code: str
+    name: str
+    enabled: bool
+    strategy_name: str
+    note: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class T0ReportOut(BaseModel):
+    id: int
+    code: str
+    strategy_name: str
+    params: dict[str, Any] | str
+    report: dict[str, Any] | str
+    eligible: bool
+    eligibility_level: str
+    generated_at: datetime
+    updated_at: datetime
+    parse_error: Optional[str] = None
+
+
+class T0PositionOut(BaseModel):
+    id: int
+    code: str
+    strategy_name: str
+    status: str
+    payload: dict[str, Any] | str
+    opened_at: datetime
+    closed_at: Optional[datetime] = None
+    parse_error: Optional[str] = None
+
+
+class AlertRecordOut(BaseModel):
+    id: int
+    code: str
+    signal_time: datetime
+    signal_type: str
+    payload: dict[str, Any] | str
+    sent: bool
+    error_message: str
+    created_at: datetime
+    parse_error: Optional[str] = None
