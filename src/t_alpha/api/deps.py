@@ -1,6 +1,7 @@
 from collections.abc import Generator
 from functools import lru_cache
 
+from fastapi import Depends
 from sqlalchemy.orm import Session
 
 from t_alpha.config import Settings
@@ -42,5 +43,5 @@ def get_market_service() -> MarketService:
     return MarketService(get_amazingdata_client())
 
 
-def get_strategy_service() -> T0StrategyService:
-    return T0StrategyService(get_amazingdata_client(), settings=get_settings())
+def get_strategy_service(session: Session = Depends(get_db_session)) -> T0StrategyService:
+    return T0StrategyService(get_amazingdata_client(), session=session, settings=get_settings())

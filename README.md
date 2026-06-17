@@ -187,6 +187,12 @@ pytest -q
 pytest tests/test_config.py -q
 ```
 
+## 管理后台
+
+本项目包含一个本地使用版 Vue3 管理后台，用于把行情查询、T0 报告生成、监控维护和记录查看整理成可视化页面。
+
+使用方式见 [docs/admin_console_usage.md](docs/admin_console_usage.md)。
+
 ## 常见问题
 
 ### 端口被占用怎么办？
