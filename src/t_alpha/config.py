@@ -33,6 +33,10 @@ class Settings(BaseSettings):
     app_host: str = Field(default="127.0.0.1", alias="APP_HOST")
     app_port: int = Field(default=8867, alias="APP_PORT")
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
+    admin_username: str = Field(default="admin", alias="ADMIN_USERNAME")
+    admin_password: str = Field(default="admin", alias="ADMIN_PASSWORD")
+    admin_token_secret: str = Field(default="dev-admin-token-secret", alias="ADMIN_TOKEN_SECRET")
+    admin_session_ttl_seconds: int = Field(default=8 * 60 * 60, alias="ADMIN_SESSION_TTL_SECONDS")
     default_test_code: str = DEFAULT_TEST_CODE
     min_trade_amount: int = Field(default=5000, alias="MIN_TRADE_AMOUNT")
     max_trade_amount: int = Field(default=20000, alias="MAX_TRADE_AMOUNT")

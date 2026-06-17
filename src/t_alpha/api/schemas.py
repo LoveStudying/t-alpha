@@ -79,3 +79,18 @@ class T0MonitorResponse(BaseModel):
     enabled: bool
     strategy_name: str
     reason: Optional[str] = None
+
+
+class LoginRequest(BaseModel):
+    username: str = Field(min_length=1)
+    password: str = Field(min_length=1)
+
+
+class AdminUser(BaseModel):
+    username: str
+
+
+class LoginResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user: AdminUser
