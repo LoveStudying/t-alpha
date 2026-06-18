@@ -15,7 +15,7 @@ docker pull crpi-36rftbsqfy7g8oj0.cn-beijing.personal.cr.aliyuncs.com/zhuliye/t-
 1. 服务器已安装 Docker。
 2. 当前用户可以执行 `docker` 命令，或使用 `sudo` 运行脚本。
 3. 服务器可以访问阿里云镜像仓库。
-4. 已准备好生产环境 `.env` 文件。
+4. 已准备好生产环境 `backend/.env.prod` 文件。
 
 ## 推荐目录结构
 
@@ -30,7 +30,9 @@ cd /usr/local/t-alpha
 
 ```text
 /usr/local/t-alpha/
-├── .env
+├── backend/
+│   ├── .env.example
+│   └── .env.prod
 ├── deploy/
 │   ├── pull_start.sh
 │   └── restart.sh
@@ -40,13 +42,14 @@ cd /usr/local/t-alpha
 
 `data/` 和 `logs/` 会由脚本自动创建。
 
-## 配置 .env
+## 配置 backend/.env.prod
 
-可以从 `.env.example` 复制一份：
+可以从 `backend/.env.example` 复制一份：
 
 ```bash
-cp .env.example .env
-vim .env
+mkdir -p backend
+cp backend/.env.example backend/.env.prod
+vim backend/.env.prod
 ```
 
 至少检查以下配置：
@@ -80,7 +83,7 @@ APP_PORT=8867
 AMAZINGDATA_LOCAL_PATH=/app/data/amazingdata
 ```
 
-这样可以避免 `.env` 中仍保留本地开发配置 `APP_HOST=127.0.0.1` 时，Docker 端口映射后服务无法从容器外访问。
+这样可以避免 `backend/.env.prod` 中仍保留本地开发配置 `APP_HOST=127.0.0.1` 时，Docker 端口映射后服务无法从容器外访问。
 
 ## 首次部署或更新镜像后启动
 
@@ -99,7 +102,7 @@ chmod +x deploy/pull_start.sh deploy/restart.sh
 脚本会执行以下动作：
 
 1. 检查 Docker 是否可用。
-2. 检查 `.env` 是否存在。
+2. 检查 `backend/.env.prod` 是否存在。
 3. 拉取最新镜像。
 4. 删除同名旧容器 `t-alpha`。
 5. 使用最新镜像重新启动容器。
@@ -114,7 +117,7 @@ http://服务器IP:8867/docs
 
 ## 不拉取镜像，仅重启项目
 
-如果只是修改 `.env`、重启服务，或服务器重启后手动恢复项目，不需要重新拉取镜像：
+如果只是修改 `backend/.env.prod`、重启服务，或服务器重启后手动恢复项目，不需要重新拉取镜像：
 
 ```bash
 ./deploy/restart.sh
@@ -155,7 +158,7 @@ CONTAINER_NAME=t-alpha-prod ./deploy/pull_start.sh
 ### 指定其他 .env 文件
 
 ```bash
-ENV_FILE=/usr/local/t-alpha/.env.prod ./deploy/pull_start.sh
+ENV_FILE=/usr/local/t-alpha/backend/.env.prod ./deploy/pull_start.sh
 ```
 
 ### 指定数据和日志目录
@@ -204,7 +207,7 @@ docker run -d \
   --name t-alpha \
   --restart unless-stopped \
   -p 8867:8867 \
-  --env-file ./.env \
+  --env-file ./backend/.env.prod \
   -e APP_ENV=prod \
   -e APP_HOST=0.0.0.0 \
   -e APP_PORT=8867 \
@@ -235,11 +238,11 @@ docker logs --tail 100 t-alpha
 docker logs --tail 200 t-alpha
 ```
 
-常见原因包括 `.env` 配置错误、数据库无法连接、AmazingData 服务地址不可达或账号密码错误。
+常见原因包括 `backend/.env.prod` 配置错误、数据库无法连接、AmazingData 服务地址不可达或账号密码错误。
 
-### 修改 .env 后未生效
+### 修改 backend/.env.prod 后未生效
 
-`.env` 在容器启动时读取，修改后需要重启：
+`backend/.env.prod` 在容器启动时读取，修改后需要重启：
 
 ```bash
 ./deploy/restart.sh

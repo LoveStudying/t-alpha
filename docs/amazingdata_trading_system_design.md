@@ -115,45 +115,47 @@ flowchart TD
 
 ```text
 t-alpha/
-  pyproject.toml
   README.md
-  .env.example
+  backend/
+    pyproject.toml
+    .env.example
+    src/
+      t_alpha/
+        main.py
+        config.py
+        api/
+          routes_market.py
+          routes_strategy.py
+          schemas.py
+        data/
+          amazingdata_client.py
+          calendar.py
+          market_data.py
+          adjust.py
+        indicators/
+          technical.py
+        strategy/
+          t0_strategy.py
+          signal.py
+          risk.py
+        backtest/
+          engine.py
+          metrics.py
+        scheduler/
+          jobs.py
+        notification/
+          email_sender.py
+        storage/
+          models.py
+          repository.py
+    tests/
+      test_calendar.py
+      test_market_api.py
+      test_backtest_engine.py
+      test_t0_strategy.py
+  web-admin/
   docs/
     amazingdata_trading_system_design.md
-  src/
-    t_alpha/
-      main.py
-      config.py
-      api/
-        routes_market.py
-        routes_strategy.py
-        schemas.py
-      data/
-        amazingdata_client.py
-        calendar.py
-        market_data.py
-        adjust.py
-      indicators/
-        technical.py
-      strategy/
-        t0_strategy.py
-        signal.py
-        risk.py
-      backtest/
-        engine.py
-        metrics.py
-      scheduler/
-        jobs.py
-      notification/
-        email_sender.py
-      storage/
-        models.py
-        repository.py
-  tests/
-    test_calendar.py
-    test_market_api.py
-    test_backtest_engine.py
-    test_t0_strategy.py
 ```
 
 `indicators/technical.py` 可以参考 `ad_technical_analysis/scripts/run_technical_analysis.py` 中的 `TechnicalIndicators`，重点复用 MACD、KDJ、RSI、BOLL、ATR、均线、成交量类指标。不要直接复用脚本中的 CLI 输出逻辑，应抽出纯函数或类。

@@ -22,7 +22,7 @@
 
 ## 2. 环境准备
 
-先配置 `.env`。可参考 `.env.example`：
+先配置 `backend/.env`。可参考 `backend/.env.example`：
 
 ```env
 AD_USERNAME=your_amazingdata_username
@@ -64,10 +64,10 @@ T0_MIN_SUCCESS_RATE=0.65
 
 ## 3. 启动服务
 
-在项目根目录执行：
+在后端目录执行：
 
 ```powershell
-$env:PYTHONPATH="src"
+cd backend
 py -3 -m uvicorn t_alpha.main:app --host 127.0.0.1 --port 8867
 ```
 

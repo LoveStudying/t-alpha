@@ -1,6 +1,6 @@
 # AmazingData SDK 安装说明
 
-`/api/v1/market/stock/prices` 依赖 `AmazingData` 和 `tgw` 两个 SDK 包。它们不在公开 PyPI 源中，不能只执行 `python -m pip install -e ".[dev]"`。
+`/api/v1/market/stock/prices` 依赖 `AmazingData` 和 `tgw` 两个 SDK 包。它们不在公开 PyPI 源中，不能只在 `backend/` 下执行 `python -m pip install -e ".[dev]"`。
 
 ## 安装步骤
 
@@ -21,7 +21,7 @@ python -c "import AmazingData, tgw; print('AmazingData SDK ok')"
 python -m pip show AmazingData tgw
 ```
 
-如果导入成功，再确认 `.env` 中已有：
+如果导入成功，再确认 `backend/.env` 中已有：
 
 ```env
 AD_USERNAME=your_amazingdata_username
@@ -34,17 +34,17 @@ AD_PORT=8600
 
 ## Docker 部署
 
-Dockerfile 会在构建阶段从 SDK 仓库安装 `tgw` 和 `AmazingData` wheel，然后再安装本项目代码。账号密码和服务器地址不要写进镜像，运行容器时从 `.env` 注入：
+`backend/Dockerfile` 会在构建阶段从 SDK 仓库安装 `tgw` 和 `AmazingData` wheel，然后再安装本项目代码。账号密码和服务器地址不要写进镜像，运行容器时从 `backend/.env` 注入：
 
 ```powershell
-docker build -t t-alpha .
-docker run --rm -p 8867:8867 --env-file .env t-alpha
+docker build -t t-alpha backend
+docker run --rm -p 8867:8867 --env-file backend\.env t-alpha
 ```
 
-如果需要持久化 AmazingData 本地缓存，可以把容器内缓存目录挂载到宿主机目录，并在 `.env` 中把 `AMAZINGDATA_LOCAL_PATH` 设置成容器内路径：
+如果需要持久化 AmazingData 本地缓存，可以把容器内缓存目录挂载到宿主机目录，并在 `backend/.env` 中把 `AMAZINGDATA_LOCAL_PATH` 设置成容器内路径：
 
 ```powershell
-docker run --rm -p 8867:8867 --env-file .env -v D:\AmazingData_local_data:/data/amazingdata t-alpha
+docker run --rm -p 8867:8867 --env-file backend\.env -v D:\AmazingData_local_data:/data/amazingdata t-alpha
 ```
 
 ```env

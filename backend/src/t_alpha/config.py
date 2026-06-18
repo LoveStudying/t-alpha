@@ -1,4 +1,5 @@
 from functools import cached_property
+from pathlib import Path
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -6,8 +7,11 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from t_alpha.constants import DEFAULT_TEST_CODE, PROJECT_DB_NAME
 
 
+BACKEND_ROOT = Path(__file__).resolve().parents[2]
+
+
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+    model_config = SettingsConfigDict(env_file=BACKEND_ROOT / ".env", env_file_encoding="utf-8", extra="ignore")
 
     ad_username: str = Field(default="", alias="AD_USERNAME")
     ad_password: str = Field(default="", alias="AD_PASSWORD")

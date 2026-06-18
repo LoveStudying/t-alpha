@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from t_alpha.config import Settings
 
 
@@ -44,3 +46,9 @@ def test_settings_reads_api_server_port(monkeypatch):
 
     assert settings.app_host == "0.0.0.0"
     assert settings.app_port == 9000
+
+
+def test_settings_env_file_is_backend_local():
+    expected_env_file = Path(__file__).resolve().parents[1] / ".env"
+
+    assert Settings.model_config["env_file"] == expected_env_file

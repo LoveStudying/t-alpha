@@ -12,7 +12,7 @@ fi
 CONTAINER_NAME="${CONTAINER_NAME:-t-alpha}"
 HOST_PORT="${HOST_PORT:-8867}"
 CONTAINER_PORT="${CONTAINER_PORT:-8867}"
-ENV_FILE="${ENV_FILE:-./.env.prod}"
+ENV_FILE="${ENV_FILE:-./backend/.env.prod}"
 DATA_DIR="${DATA_DIR:-./data}"
 LOG_DIR="${LOG_DIR:-./logs}"
 RESTART_POLICY="${RESTART_POLICY:-unless-stopped}"

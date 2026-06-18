@@ -4,7 +4,7 @@
 
 ## 1. 后端配置
 
-在项目根目录 `.env` 中配置后台单用户账号：
+在 `backend/.env` 中配置后台单用户账号：
 
 ```env
 ADMIN_USERNAME=admin
@@ -22,7 +22,7 @@ ADMIN_SESSION_TTL_SECONDS=28800
 ## 2. 启动 FastAPI
 
 ```powershell
-$env:PYTHONPATH="src"
+cd backend
 python -m uvicorn t_alpha.main:app --host 127.0.0.1 --port 8867
 ```
 
@@ -60,7 +60,7 @@ http://127.0.0.1:5173
 VITE_API_BASE_URL=http://127.0.0.1:9000
 ```
 
-## 4. 构建与本地托管
+## 4. 构建前端
 
 构建前端：
 
@@ -69,13 +69,7 @@ cd web-admin
 npm run build
 ```
 
-构建成功后会生成 `web-admin/dist`。FastAPI 启动时如果检测到该目录，会自动托管后台页面：
-
-```text
-http://127.0.0.1:8867/
-```
-
-API、Swagger 和健康检查不会被前端路由覆盖。
+构建成功后会生成 `web-admin/dist`。该目录是前端静态产物，建议由独立静态资源服务、反向代理或部署平台托管，后端 FastAPI 只负责提供 API。
 
 ## 5. 页面范围
 

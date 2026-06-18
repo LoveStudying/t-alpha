@@ -13,6 +13,7 @@
 启动命令：
 
 ```powershell
+cd backend
 uvicorn t_alpha.main:app --host 127.0.0.1 --port 8867
 ```
 
