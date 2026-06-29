@@ -4,7 +4,7 @@ from fastapi import HTTPException
 
 from t_alpha.constants import ASSET_FUND, ASSET_STOCK, DISCLAIMER, SUPPORTED_ADJUST, SUPPORTED_PERIODS
 from t_alpha.data.adjust import forward_adjust
-from t_alpha.data.calendar import normalize_date_range
+from t_alpha.data.calendar import normalize_date_range, parse_yyyymmdd
 from t_alpha.data.market_data import fund_nav_dict_to_rows, kline_dict_to_rows, period_to_ad_value
 
 
@@ -21,6 +21,18 @@ class MarketService:
             )
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    def _resolve_fund_nav_dates(self, start_date: str | None, end_date: str | None) -> tuple[int, int]:
+        if start_date is not None and end_date is not None:
+            try:
+                begin_date = parse_yyyymmdd(start_date)
+                finish_date = parse_yyyymmdd(end_date)
+            except ValueError as exc:
+                raise HTTPException(status_code=400, detail=str(exc)) from exc
+            if begin_date > finish_date:
+                raise HTTPException(status_code=400, detail="start_date must be before or equal to end_date")
+            return begin_date, finish_date
+        return self._normalize_dates(start_date, end_date)
 
     @staticmethod
     def _optional_text(value: str | None) -> str | None:
@@ -90,7 +102,7 @@ class MarketService:
         start_date = self._optional_text(start_date)
         end_date = self._optional_text(end_date)
 
-        begin_date, finish_date = self._normalize_dates(start_date, end_date)
+        begin_date, finish_date = self._resolve_fund_nav_dates(start_date, end_date)
         nav_dict = self.client.get_fund_nav(code, begin_date, finish_date)
         rows = fund_nav_dict_to_rows(nav_dict, code)
         if not rows:

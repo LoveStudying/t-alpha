@@ -28,6 +28,34 @@ class FakeNavClient:
         }
 
 
+class FakeStaleCalendarNavClient(FakeNavClient):
+    def get_calendar(self):
+        return [
+            20260610,
+            20260611,
+            20260612,
+            20260615,
+            20260616,
+            20260617,
+            20260618,
+        ]
+
+    def get_fund_nav(self, code, begin_date, end_date):
+        self.calls.append((code, begin_date, end_date))
+        return {
+            code: pd.DataFrame(
+                {
+                    "PRICE_DATE": ["20260626"],
+                    "UNIT_NAV": [1.0],
+                    "ACCUM_NAV": [1.1],
+                    "ADJ_UNIT_NAV": [1.2],
+                    "INNER_CODE": [""],
+                    "OUTER_CODE": [code],
+                }
+            )
+        }
+
+
 class FakeInfoData:
     def __init__(self):
         self.calls = []
@@ -104,15 +132,26 @@ def test_market_service_uses_recent_ten_trade_days_when_price_dates_are_missing(
     assert payload["normalized_dates"] == {"start_date": "20240103", "end_date": "20240116"}
 
 
-def test_market_service_passes_normalized_dates_to_fund_nav_client():
+def test_market_service_passes_explicit_dates_to_fund_nav_client():
     client = FakeNavClient()
     service = MarketService(client)
 
     payload = service.get_fund_nav("000001.OF", "20240103", "20240105")
 
-    assert client.calls == [("000001.OF", 20240103, 20240104)]
-    assert payload["normalized_dates"] == {"start_date": "20240103", "end_date": "20240104"}
+    assert client.calls == [("000001.OF", 20240103, 20240105)]
+    assert payload["normalized_dates"] == {"start_date": "20240103", "end_date": "20240105"}
     assert payload["rows"][0]["price_date"] == "20240104"
+
+
+def test_market_service_preserves_explicit_fund_nav_end_date_with_stale_calendar():
+    client = FakeStaleCalendarNavClient()
+    service = MarketService(client)
+
+    payload = service.get_fund_nav("420102.OF", "20260610", "20260630")
+
+    assert client.calls == [("420102.OF", 20260610, 20260630)]
+    assert payload["normalized_dates"] == {"start_date": "20260610", "end_date": "20260630"}
+    assert payload["rows"][0]["price_date"] == "20260626"
 
 
 def test_amazingdata_client_passes_fund_nav_date_range_to_sdk():
